@@ -199,6 +199,9 @@
           balls[i].iterate();
         }
       }
+      document.getElementById('submit').onclick = function() {
+        return store();
+      };
     </script>
   </head>
   <body>
@@ -207,7 +210,7 @@
     <input type='text' id='messageInput' placeholder='Message'> 
     <input type="filepicker" data-fp-apikey="AW4CXYavkQeCyBT6mYWOSz"
     onchange="imageHandler(event.fpfile.url)">
-    <input type='submit' id='submit' onclick="return store()">
+    <input type='submit' id='submit'>
     </div>
     <canvas id="myCanvas" resize></canvas>
   </body>
