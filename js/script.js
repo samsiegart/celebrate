@@ -1,32 +1,8 @@
-<!DOCTYPE html>
-<html>
-<head>
-<style type="text/css">
-html,
-body {
-    margin: 0;
-    overflow: hidden;
-    height: 100%;
-}
-
-canvas {
-  background-color: #100020;
-}
-/* Scale canvas with resize attribute to full size */
-canvas[resize] {
-    width: 100%;
-    height: 100%;
-}
-</style>
-<!-- Load the Paper.js library -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/paper.js/0.9.25/paper-full.min.js"></script>
-<!-- Define inlined PaperScript associate it with myCanvas -->
-<script type="text/paperscript" canvas="myCanvas">
 function Ball(r, p, v) {
   this.radius = r;
   this.point = p;
   this.vector = v;
-  this.maxVec = 9;
+  this.maxVec = 15;
   this.numSegment = Math.floor(r / 3 + 2);
   this.boundOffset = [];
   this.boundOffsetBuff = [];
@@ -39,16 +15,6 @@ function Ball(r, p, v) {
     },
     blendMode: 'lighter'
   });
-  this.points = 10;
-  this.stlength = 25;
-  this.start = p;
-  this.stringPath = new Path({
-    strokeColor: '#AAA',
-    strokeWidth: 1.5,
-    strokeCap: 'round'
-  });
-  for (var i = 0; i < this.points; i++)
-      this.stringPath.add(this.start + new Point(0, i * this.stlength + this.radius));
 
   for (var i = 0; i < this.numSegment; i ++) {
     this.boundOffset.push(this.radius);
@@ -67,15 +33,6 @@ Ball.prototype = {
     if (this.vector.length > this.maxVec)
       this.vector.length = this.maxVec;
     this.point += this.vector;
-    this.stringPath.firstSegment.point = this.point + new Point(0, this.radius);
-    for (var i = 0; i < this.points - 1; i++) {
-      var segment = this.stringPath.segments[i];
-      var nextSegment = segment.next;
-      var vector = segment.point - nextSegment.point;
-      vector.length = this.stlength;
-      nextSegment.point = segment.point - vector;
-    }
-    this.stringPath.smooth({ type: 'continuous' });
     this.updateShape();
   },
 
@@ -103,7 +60,7 @@ Ball.prototype = {
       var next = (i + 1) % this.numSegment;
       var prev = (i > 0) ? i - 1 : this.numSegment - 1;
       var offset = this.boundOffset[i];
-      offset += (this.radius - offset) / 9;
+      offset += (this.radius - offset) / 15;
       offset += ((this.boundOffset[next] + this.boundOffset[prev]) / 2 - offset) / 3;
       this.boundOffsetBuff[i] = this.boundOffset[i] = offset;
     }
@@ -153,16 +110,17 @@ Ball.prototype = {
 
 //--------------------- main ---------------------
 var balls = [];
-var numBalls = 10;
+var numBalls = 18;
 for (var i = 0; i < numBalls; i++) {
   var position = Point.random() * view.size;
   var vector = new Point({
     angle: 360 * Math.random(),
-    length: Math.random() * 8
+    length: Math.random() * 10
   });
-  var radius = Math.random() * 40 + 40;
+  var radius = Math.random() * 60 + 60;
   balls.push(new Ball(radius, position, vector));
 }
+
 function onFrame() {
   for (var i = 0; i < balls.length - 1; i++) {
     for (var j = i + 1; j < balls.length; j++) {
@@ -173,9 +131,3 @@ function onFrame() {
     balls[i].iterate();
   }
 }
-</script>
-</head>
-<body>
-  <canvas id="myCanvas" resize></canvas>
-</body>
-</html>
