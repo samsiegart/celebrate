@@ -3,17 +3,28 @@
   <head>
     <script src='https://cdn.firebase.com/js/client/2.2.1/firebase.js'></script>
     <script src='https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js'></script>
-    <script type="text/javascript" src="//api.filestackapi.com/filestack.js"></script>
-    <link rel='stylesheet' type='text/css' href='/resources/tutorial/css/example.css'>
-  
-  </head>
-  <body>
-    <div id='messagesDiv'></div>
-    <input type='text' id='messageInput' placeholder='Message'> 
-    <input type="filepicker" data-fp-apikey="AW4CXYavkQeCyBT6mYWOSz"
-    onchange="imageHandler(event.fpfile.url)">
-    <input type='submit' id='submit' onclick="return store()"> 
-    <script>
+    <script type="text/javascript" src="https://api.filestackapi.com/filestack.js"></script>
+    <style type="text/css">
+      html,
+      body {
+        margin: 0;
+        overflow: hidden;
+        height: 100%;
+      }
+      canvas {
+        background-color: #100020;
+        position: absolute;
+        z-index: -1;
+      }
+      /* Scale canvas with resize attribute to full size */
+      canvas[resize] {
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+    <!-- Load the Paper.js library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paper.js/0.9.25/paper-full.min.js"></script>
+    <script type="text/paperscript" canvas="myCanvas">
       var url = '';
       var myDataRef = new Firebase('https://gradceleb.firebaseio.com/');
       function store() {
@@ -37,6 +48,167 @@
         document.body.appendChild(img);
         $('#messagesDiv')[0].scrollTop = $('#messagesDiv')[0].scrollHeight;
       };
+      function Ball(r, p, v) {
+        this.radius = r;
+        this.point = p;
+        this.vector = v;
+        this.maxVec = 2;
+        this.numSegment = Math.floor(r / 3 + 2);
+        this.boundOffset = [];
+        this.boundOffsetBuff = [];
+        this.sidePoints = [];
+        this.path = new Path({
+          fillColor: {
+            hue: Math.random() * 360,
+            saturation: 1,
+            brightness: 1
+          },
+          blendMode: 'lighter'
+        });
+        this.points = 10;
+        this.stlength = 25;
+        this.start = p;
+        this.stringPath = new Path({
+          strokeColor: '#AAA',
+          strokeWidth: 1.5,
+          strokeCap: 'round'
+        });
+        for (var i = 0; i < this.points; i++)
+            this.stringPath.add(this.start + new Point(0, i * this.stlength + this.radius));
+
+        for (var i = 0; i < this.numSegment; i ++) {
+          this.boundOffset.push(this.radius);
+          this.boundOffsetBuff.push(this.radius);
+          this.path.add(new Point());
+          this.sidePoints.push(new Point({
+            angle: 360 / this.numSegment * i,
+            length: 1
+          }));
+        }
+      }
+
+      Ball.prototype = {
+        iterate: function() {
+          this.checkBorders();
+          if (this.vector.length > this.maxVec)
+            this.vector.length = this.maxVec;
+          this.point += this.vector;
+          this.stringPath.firstSegment.point = this.point + new Point(0, this.radius);
+          for (var i = 0; i < this.points - 1; i++) {
+            var segment = this.stringPath.segments[i];
+            var nextSegment = segment.next;
+            var vector = segment.point - nextSegment.point;
+            vector.length = this.stlength;
+            nextSegment.point = segment.point - vector;
+          }
+          this.stringPath.smooth({ type: 'continuous' });
+          this.updateShape();
+        },
+
+        checkBorders: function() {
+          var size = view.size;
+          if (this.point.x < -this.radius)
+            this.point.x = size.width + this.radius;
+          if (this.point.x > size.width + this.radius)
+            this.point.x = -this.radius;
+          if (this.point.y < -this.radius)
+            this.point.y = size.height + this.radius;
+          if (this.point.y > size.height + this.radius)
+            this.point.y = -this.radius;
+        },
+
+        updateShape: function() {
+          var segments = this.path.segments;
+          for (var i = 0; i < this.numSegment; i ++)
+            segments[i].point = this.getSidePoint(i);
+
+          this.path.smooth();
+          for (var i = 0; i < this.numSegment; i ++) {
+            if (this.boundOffset[i] < this.radius / 4)
+              this.boundOffset[i] = this.radius / 4;
+            var next = (i + 1) % this.numSegment;
+            var prev = (i > 0) ? i - 1 : this.numSegment - 1;
+            var offset = this.boundOffset[i];
+            offset += (this.radius - offset) / 9;
+            offset += ((this.boundOffset[next] + this.boundOffset[prev]) / 2 - offset) / 3;
+            this.boundOffsetBuff[i] = this.boundOffset[i] = offset;
+          }
+        },
+
+        react: function(b) {
+          var dist = this.point.getDistance(b.point);
+          if (dist < this.radius + b.radius && dist != 0) {
+            var overlap = this.radius + b.radius - dist;
+            var direc = (this.point - b.point).normalize(overlap * 0.015);
+            this.vector += direc;
+            b.vector -= direc;
+
+            this.calcBounds(b);
+            b.calcBounds(this);
+            this.updateBounds();
+            b.updateBounds();
+          }
+        },
+
+        getBoundOffset: function(b) {
+          var diff = this.point - b;
+          var angle = (diff.angle + 180) % 360;
+          return this.boundOffset[Math.floor(angle / 360 * this.boundOffset.length)];
+        },
+
+        calcBounds: function(b) {
+          for (var i = 0; i < this.numSegment; i ++) {
+            var tp = this.getSidePoint(i);
+            var bLen = b.getBoundOffset(tp);
+            var td = tp.getDistance(b.point);
+            if (td < bLen) {
+              this.boundOffsetBuff[i] -= (bLen  - td) / 2;
+            }
+          }
+        },
+
+        getSidePoint: function(index) {
+          return this.point + this.sidePoints[index] * this.boundOffset[index];
+        },
+
+        updateBounds: function() {
+          for (var i = 0; i < this.numSegment; i ++)
+            this.boundOffset[i] = this.boundOffsetBuff[i];
+        }
+      };
+
+      //--------------------- main ---------------------
+      var balls = [];
+      var numBalls = 10;
+      for (var i = 0; i < numBalls; i++) {
+        var position = Point.random() * view.size;
+        var vector = new Point({
+          angle: 360 * Math.random(),
+          length: Math.random() * 8
+        });
+        var radius = Math.random() * 40 + 40;
+        balls.push(new Ball(radius, position, vector));
+      }
+      function onFrame() {
+        for (var i = 0; i < balls.length - 1; i++) {
+          for (var j = i + 1; j < balls.length; j++) {
+            balls[i].react(balls[j]);
+          }
+        }
+        for (var i = 0, l = balls.length; i < l; i++) {
+          balls[i].iterate();
+        }
+      }
     </script>
+  </head>
+  <body>
+    <div id="stuff">
+    <div id='messagesDiv'></div>
+    <input type='text' id='messageInput' placeholder='Message'> 
+    <input type="filepicker" data-fp-apikey="AW4CXYavkQeCyBT6mYWOSz"
+    onchange="imageHandler(event.fpfile.url)">
+    <input type='submit' id='submit' onclick="return store()">
+    </div>
+    <canvas id="myCanvas" resize></canvas>
   </body>
 </html>
