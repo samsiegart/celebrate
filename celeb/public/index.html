@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+  <head>
+    <script src='https://cdn.firebase.com/js/client/2.2.1/firebase.js'></script>
+    <script src='https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js'></script>
+    <script type="text/javascript" src="//api.filestackapi.com/filestack.js"></script>
+    <link rel='stylesheet' type='text/css' href='/resources/tutorial/css/example.css'>
+  
+  </head>
+  <body>
+    <div id='messagesDiv'></div>
+    <input type='text' id='messageInput' placeholder='Message'> 
+    <input type="filepicker" data-fp-apikey="AW4CXYavkQeCyBT6mYWOSz"
+    onchange="imageHandler(event.fpfile.url)">
+    <input type='submit' id='submit' onclick="return store()"> 
+    <script>
+      var url = '';
+      var myDataRef = new Firebase('https://gradceleb.firebaseio.com/');
+      function store() {
+        var text = $('#messageInput').val();
+        if (text != '') {
+          myDataRef.push({text:text, image:url});
+          $('#messageInput').val('');
+        }
+      }
+      myDataRef.on('child_added', function(snapshot) {
+        var message = snapshot.val();
+        displayChatMessage(message.text, message.image);
+      });
+      function imageHandler(text) {
+        url = text;
+      }
+      function displayChatMessage(text, url) {
+        $('<div/>').text(text).appendTo($('#messagesDiv'));
+        var img = document.createElement('img');
+        img.src = url;
+        document.body.appendChild(img);
+        $('#messagesDiv')[0].scrollTop = $('#messagesDiv')[0].scrollHeight;
+      };
+    </script>
+  </body>
+</html>
